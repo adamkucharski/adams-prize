@@ -16,6 +16,12 @@ ymax <- max(exp(r*tt))
 
 
 ################################################################################
+### Create panel layout
+################################################################################
+
+par(mfrow = c(2, 2))
+
+################################################################################
 ### R illustration, baseline panel
 ################################################################################
 
@@ -31,7 +37,7 @@ text(0.9*xmax, 0.95*ymax, expression(I[t]~"="~I[0]~e^rt))
 ## primary case
 col <- "black"
 lwd <- 3
-radius <- 0.2
+radius <- 0.15
 draw_man(x0 = 0, y0 = 0, radius = radius, col = col, lwd = lwd)
 
 ## secondary cases
@@ -79,7 +85,7 @@ text(0.9*xmax, 0.95*ymax*p_report, expression(rho~I[0]~e^rt))
 ## primary case
 col <- "black"
 col2 <- "grey"
-lwd <- 3
+lwd <- 2
 radius <- 0.1
 draw_man(x0 = 0, y0 = 0, radius = radius, height = .5, col = col, lwd = lwd)
 draw_man(x0 = 0, y0 = .5, radius = radius, height = .5, col = col2, lwd = lwd)
