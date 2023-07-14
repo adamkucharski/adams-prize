@@ -188,5 +188,16 @@ epitrix::r2R0(r, distcrete::distcrete("gamma", 1, shape = 4, scale = 1.5, w = 0)
 ### 3 days to be exponentially distr (like the cases) which means this corresponds to a larger mean GT
 ### to preserve the same mean GT, you'd then need to bring the GT to a lower value, or increaase the r.
 
+## can see this in Wallinga Lipsitch (3.4)
+# for a normally distributed GT (with mean T and variance sigma)
+# R = exp(r*T-.5r^2sigma^2) = exp(T-.5r*sigma^2)^r
+
+# so if r and T are the same then R decreases as sigma increases
+
+### --> need to find a way to show this visually. Easiest perhaps with an exponential distr?
+
+
+
+
 
 
