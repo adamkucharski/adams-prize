@@ -31,7 +31,7 @@ par(mfrow = c(1, 2),
 ## exponential growth curve obtained with flu-like natural history
 plot(tt, exp(r*tt), type = "l", xlab = "", ylab = "", bty = "n",
      xlim = range(tt), ylim = c(0, 1.1*ymax),
-     main = "A. Flu-like natural history")
+     main = paste0("R = ", signif(R_flu, 2), "; Flu-like natural history"))
 mtext("Time", 1, 3)
 mtext("Incidence", 2, 3)
 abline(v = mean_GT_flu*seq_len(30), lty = 2, col = "grey")
@@ -39,7 +39,7 @@ abline(v = mean_GT_flu*seq_len(30), lty = 2, col = "grey")
 ## exponential growth curve obtained with measles-like natural history
 plot(tt, exp(r*tt), type = "l", xlab = "", ylab = "", bty = "n",
      xlim = range(tt), ylim = c(0, 1.1*ymax),
-     main = "B. Measles-like natural history")
+     main = paste0("R = ", signif(R_measles, 2), "; Measles-like natural history"))
 mtext("Time", 1, 3)
 mtext("Incidence", 2, 3)
 abline(v = mean_GT_measles*seq_len(30), lty = 2, col = "grey")
