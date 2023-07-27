@@ -25,23 +25,39 @@ par(mfrow = c(1, 2),
     las = 0, xaxs="i", yaxs="i", mar = c(5, 5, 2, 2))
 
 ################################################################################
-### R illustration, baseline panel
+### Flu-like natural history
 ################################################################################
 
 ## exponential growth curve obtained with flu-like natural history
 plot(tt, exp(r*tt), type = "l", xlab = "", ylab = "", bty = "n",
      xlim = range(tt), ylim = c(0, 1.1*ymax),
-     main = paste0("R = ", signif(R_flu, 2), "; Flu-like natural history"))
+     main = paste0("R = ", signif(R_flu, 3), "; Flu-like natural history"))
 mtext("Time", 1, 3)
 mtext("Incidence", 2, 3)
 abline(v = mean_GT_flu*seq_len(30), lty = 2, col = "grey")
 
+################################################################################
+### same r but Measles-like natural history
+################################################################################
+
 ## exponential growth curve obtained with measles-like natural history
 plot(tt, exp(r*tt), type = "l", xlab = "", ylab = "", bty = "n",
      xlim = range(tt), ylim = c(0, 1.1*ymax),
-     main = paste0("R = ", signif(R_measles, 2), "; Measles-like natural history"))
+     main = paste0("R = ", signif(R_measles, 3), "; Measles-like natural history"))
 mtext("Time", 1, 3)
 mtext("Incidence", 2, 3)
 abline(v = mean_GT_measles*seq_len(30), lty = 2, col = "grey")
 
 dev.off()
+
+################################################################################
+### Numbers
+################################################################################
+
+# Flu
+epitrix::R02AR(R0 = R_flu)
+1 - 1/R_flu
+
+# Measles
+epitrix::R02AR(R0 = R_measles)
+1 - 1/R_measles
