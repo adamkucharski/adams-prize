@@ -6,6 +6,8 @@
 library(MASS)
 library(tidyverse)
 
+# setwd("~/Documents/GitHub/adams-prize")
+
 # Simulate infection dynamics
 xx <- 0:1000
 data_infections <- c(seq(220,1000,20),rev(seq(200,1000,200)),rep(200,40))
@@ -15,13 +17,14 @@ data_infections <- data_infections #* rlnorm(n_inf,0,0.2) # add some noise
 
 # Set delay function pmf
 #p_by_day <- #epiparameter::epidist("SARS_CoV_2_wildtype","incubation")$pmf
-mean_p <- 5
+mean_p <- 10
 scale_p <- 1
 shift_p <- 0
 
 # Plot delay function
+max_days <- 30
 p_by_day <- function(x){dgamma(x,shape=mean_p/scale_p,scale=scale_p)}
-plot(1:20,p_by_day(1:20))
+plot(1:max_days,p_by_day(1:max_days))
 
 # Define transition matrix to construct outcome data
 f_matrix <- matrix(0,nrow=n_inf,ncol=n_inf)
@@ -39,6 +42,8 @@ for(ii in 1:n_inf){
 # Quick simulation --------------------------------------------------------
 
 # Simulate outcomes
+letter_x <- 1
+
 data_outcomes <- f_matrix %*% data_infections
 
 par(mfrow=c(1,1),mgp=c(2,0.7,0),mar = c(3,3,1,1))
@@ -47,7 +52,7 @@ ymax <- 1.1e3
 # Plot original incidence
 plot(data_infections,yaxs="i",ylab="daily incidence (%)",ylim=c(0,ymax),xlab="days")
 points(data_outcomes,col="red")
-title(main=LETTERS[1],adj=0);letter_x <- letter_x+1
+title(main=LETTERS[letter_x],adj=0);letter_x <- letter_x+1
 
 
 
@@ -91,7 +96,7 @@ letter_x <- 1
 
 # Plot original incidence vs inference based on deconvolution and shift
 plot(data_infections,yaxs="i",ylab="daily cases",ylim=c(0,ymax),xlab="days")
-points(data_outcomes,col="red")
+lines(data_outcomes,col="red",lwd=2)
 title(main=LETTERS[1],adj=0);letter_x <- letter_x+1
 
 # Plot deconvolution
@@ -110,16 +115,18 @@ graphics::text(labels="shifted outcomes",x=x_shift,y=(y_shift-150),adj=0,col="or
 
 
 # Run again but with noise on delayed outcome observations
-data_outcomes2 <- data_outcomes * rlnorm(length(data_outcomes),0,0.01) # add some noise
+data_outcomes2 <- data_outcomes * rlnorm(length(data_outcomes),0,0.0001) # add some noise
 
 # Plot original incidence
 plot(data_infections,yaxs="i",ylab="daily cases",ylim=c(0,ymax),xlab="days")
-graphics::text(labels="noisy outcomes",x=x_shift,y=(y_shift-50),adj=0,col="red",cex=t_size)
-graphics::text(labels="deconvolved outcomes",x=x_shift,y=(y_shift-100),adj=0,col="blue",cex=t_size)
 
 inc2 <- estimate_infections(data_outcomes2)
 lines(inc2,col="blue",lwd=1)
-points(data_outcomes2,col="red")
+lines(data_outcomes2,col="red",lwd=2)
+
+graphics::text(labels="noisy outcomes",x=x_shift,y=(y_shift-50),adj=0,col="red",cex=t_size)
+graphics::text(labels="deconvolved outcomes",x=x_shift,y=(y_shift-100),adj=0,col="blue",cex=t_size)
+
 
 title(main=LETTERS[2],adj=0);letter_x <- letter_x+1
 
