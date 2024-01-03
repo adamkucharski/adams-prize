@@ -1,6 +1,6 @@
-# - - - - - - - - - - - - - - - - - - - - - - - 
+# - - - - - - - - - - - - - - - - - - - - - - -
 # Deconvolution of simulated infection data
-# - - - - - - - - - - - - - - - - - - - - - - - 
+# - - - - - - - - - - - - - - - - - - - - - - -
 
 # Load libraries
 library(MASS)
@@ -33,9 +33,9 @@ n_delay_days <- 50 # maximum delay period to consider
 for(ii in 1:n_inf){
   i_max <- min(ii+n_delay_days-1,n_inf)
   j_max <- min(n_inf-ii+1,n_delay_days)
-  
+
   f_matrix[ii:i_max,ii] <- p_by_day(0:(j_max-1)) # fill matrix entries
-  
+
 }
 
 
@@ -54,8 +54,6 @@ plot(data_infections,yaxs="i",ylab="daily incidence (%)",ylim=c(0,ymax),xlab="da
 points(data_outcomes,col="red")
 title(main=LETTERS[letter_x],adj=0);letter_x <- letter_x+1
 
-
-
 # Run deconvolution methods -----------------------------------------------
 
 
@@ -64,27 +62,27 @@ invert_f <- ginv(f_matrix)
 
 # Function to estimate infection incidence from delayed outcomes
 estimate_infections <- function(delayed_outcomes){
-  
-  # Define transition matrix - 
+
+  # Define transition matrix -
   n_inf <- length(delayed_outcomes)
   f_matrix <- matrix(0,nrow=n_inf,ncol=n_inf)
   n_delay_days <- 30 # maximum incubation period to consider
-  
+
   for(ii in 1:n_inf){
     i_max <- min(ii+n_delay_days-1,n_inf)
     j_max <- min(n_inf-ii+1,n_delay_days)
-    
+
     f_matrix[ii:i_max,ii] <- p_by_day(0:(j_max-1))
-    
+
   }
-  
-  # Calculate Moore-Penrose pseudoinverse matrix 
+
+  # Calculate Moore-Penrose pseudoinverse matrix
   invert_f <- ginv(f_matrix)
-  
+
   # Apply inversion matrix
   output <- invert_f %*% delayed_outcomes
   output
-  
+
 }
 
 # Run simulation function to generate delayed outcomes from original infections
@@ -133,3 +131,6 @@ title(main=LETTERS[2],adj=0);letter_x <- letter_x+1
 dev.copy(png,paste0("outputs/convolution_plot.png"),units="cm",width=20,height=10,res=150)
 dev.off()
 
+
+saveRDS(data_outcomes, "outputs/data_outcomes.rds")
+saveRDS(data_outcomes2, "outputs/data_outcomes2.rds")
