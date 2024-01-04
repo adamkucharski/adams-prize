@@ -1,6 +1,11 @@
+
 library(EpiEstim)
 library(epitrix)
 library(scales)
+
+col_EpiEstim <- "blue"
+col_WT <- "turquoise"
+col_WL <- "violet"
 
 incidence <- readRDS("outputs/data_outcomes2.rds")
 
@@ -18,87 +23,45 @@ sd_SI <- 2
 
 distr_SI <- discr_si(seq(0, 21), mu = mean_SI, sigma = sd_SI)
 
+
 ####################################
-### estimation with WL
+### estimation with WL on weekly time windows
 ####################################
+
+par(mfrow = c(2, 1))
 
 y <- log(incidence+1)
 x <- seq_along(y)
 
-plot(x, y, type = "l")
+plot(x, y,
+     xlim = c(0, 85), ylim = c(0, 7),
+     xlab = "Days",
+     ylab = "Log daily incidence")
 dt <- 7
-t1 <- seq(1, 1+dt)
-t2 <- seq(2*dt+1, 6*dt)
-t3 <- seq(7*dt+1, 8*dt)
-t4 <- seq(9*dt+1, 11*dt)
+times <- lapply(seq(1, length(y)-5, dt), function(i) seq(i, i + dt - 1))
+lm_all <- lapply(seq_along(times), function(i) lm(y[times[[i]]]~x[times[[i]]]))
 
-lm1 <- lm(y[t1]~x[t1])
-lm2 <- lm(y[t2]~x[t2])
-lm3 <- lm(y[t3]~x[t3])
-lm4 <- lm(y[t4]~x[t4])
-
-r1 <- summary(lm1)$coefficients[2, ]
-r2 <- summary(lm2)$coefficients[2, ]
-r3 <- summary(lm3)$coefficients[2, ]
-r4 <- summary(lm4)$coefficients[2, ]
-
-
-pred.lm1 <- predict(lm1, interval = "confidence")
-lines(x[t1], pred.lm1[,"fit"], col = "red")
-lines(x[t1], pred.lm1[,"lwr"], col = "red", lty = 2)
-lines(x[t1], pred.lm1[,"upr"], col = "red", lty = 2)
-
-pred.lm2 <- predict(lm2, interval = "confidence")
-lines(x[t2], pred.lm2[,"fit"], col = "red")
-lines(x[t2], pred.lm2[,"lwr"], col = "red", lty = 2)
-lines(x[t2], pred.lm2[,"upr"], col = "red", lty = 2)
-
-pred.lm3 <- predict(lm3, interval = "confidence")
-lines(x[t3], pred.lm3[,"fit"], col = "red")
-lines(x[t3], pred.lm3[,"lwr"], col = "red", lty = 2)
-lines(x[t3], pred.lm3[,"upr"], col = "red", lty = 2)
-
-pred.lm4 <- predict(lm4, interval = "confidence")
-lines(x[t4], pred.lm4[,"fit"], col = "red")
-lines(x[t4], pred.lm4[,"lwr"], col = "red", lty = 2)
-lines(x[t4], pred.lm4[,"upr"], col = "red", lty = 2)
-
-R1 <- lm2R0_sample(lm1, w = distr_SI)
-R2 <- lm2R0_sample(lm2, w = distr_SI)
-R3 <- lm2R0_sample(lm3, w = distr_SI)
-R4 <- lm2R0_sample(lm4, w = distr_SI)
-
-quantile(R1, c(.5, .025, .975))
-quantile(R2, c(.5, .025, .975))
-quantile(R3, c(.5, .025, .975))
-quantile(R4, c(.5, .025, .975))
+r_all <- t(sapply(seq_along(times), function(i) summary(lm_all[[i]])$coefficients[2, ]))
+R_WL_all <- list()
 
 R_WL <- data.frame(t = x,
                    R = rep(NA, length(x)),
                    R_low = rep(NA, length(x)),
                    R_up = rep(NA, length(x)))
 
-R_WL$R[t1] <- mean(R1)
-R_WL$R_low[t1] <- quantile(R1, .025)
-R_WL$R_up[t1] <- quantile(R1, .975)
+for(i in seq_along(times)) {
+  pred.lm <- predict(lm_all[[i]], interval = "confidence")
+  lines(x[times[[i]]], pred.lm[,"fit"], col = col_WL)
+  polygon(c(x[times[[i]]], rev(x[times[[i]]])),
+          c(pred.lm[,"lwr"], rev(pred.lm[,"upr"])),
+          col = alpha(col_WL, .2), border = NA)
+  R_WL_all[[i]] <- lm2R0_sample(lm_all[[i]], w = distr_SI)
+  R_WL$R[times[[i]]] <- mean(R_WL_all[[i]])
+  R_WL$R_low[times[[i]]] <- quantile(R_WL_all[[i]], 0.025)
+  R_WL$R_up[times[[i]]] <- quantile(R_WL_all[[i]], 0.975)
+}
 
-R_WL$R[t2] <- mean(R2)
-R_WL$R_low[t2] <- quantile(R2, .025)
-R_WL$R_up[t2] <- quantile(R2, .975)
-
-R_WL$R[t3] <- mean(R3)
-R_WL$R_low[t3] <- quantile(R3, .025)
-R_WL$R_up[t3] <- quantile(R3, .975)
-
-R_WL$R[t4] <- mean(R4)
-R_WL$R_low[t4] <- quantile(R4, .025)
-R_WL$R_up[t4] <- quantile(R4, .975)
-
-
-R_WL_1 <- R_WL[t1,]
-R_WL_2 <- R_WL[t2,]
-R_WL_3 <- R_WL[t3,]
-R_WL_4 <- R_WL[t4,]
+R_WL <- R_WL[-which(is.na(R_WL$R)), ]
 
 ####################################
 ### estimation with Cori et al.
@@ -127,40 +90,23 @@ R_WT <- wallinga_teunis(incid = incidence,
 ### summary
 ####################################
 
-## TODO: generate a plot which compares the different estimates
-#plot(R_cori, what = "R")
-#plot(R_WT, what = "R")
-# somehow plot R_WL
-
 plot(R_cori$R$t_end, R_cori$R$`Mean(R)`, type = "l",
-     xlab = "Time",
+     xlim = c(0, 85), ylim = c(0, 5),
+     xlab = "Days",
      ylab = "R estimates",
-     col = "blue",
-     ylim = c(0, 5))#ylim = c(0, 25))
+     col = col_EpiEstim)
 polygon(c(R_cori$R$t_end, rev(R_cori$R$t_end)),
         c(R_cori$R$`Quantile.0.025(R)`, rev(R_cori$R$`Quantile.0.975(R)`)),
-        col = alpha("blue", .2), border = NA)
+        col = alpha(col_EpiEstim, .2), border = NA)
 abline(h = 1, col = "grey", lty = 2)
-lines(R_WT$R$t_end, R_WT$R$`Mean(R)`, type = "l", col = "turquoise")
+lines(R_WT$R$t_end, R_WT$R$`Mean(R)`, type = "l", col = col_WT)
 polygon(c(R_WT$R$t_end, rev(R_WT$R$t_end)),
         c(R_WT$R$`Quantile.0.025(R)`, rev(R_WT$R$`Quantile.0.975(R)`)),
-        col = alpha("turquoise", .2), border = NA)
-lines(R_WL$t, R_WL$R, type = "l", col = "violet")
-polygon(c(R_WL_1$t, rev(R_WL_1$t)),
-        c(R_WL_1$R_low, rev(R_WL_1$R_up)),
-        col = alpha("violet", .2), border = NA)
-polygon(c(R_WL_2$t, rev(R_WL_2$t)),
-        c(R_WL_2$R_low, rev(R_WL_2$R_up)),
-        col = alpha("violet", .2), border = NA)
-polygon(c(R_WL_3$t, rev(R_WL_3$t)),
-        c(R_WL_3$R_low, rev(R_WL_3$R_up)),
-        col = alpha("violet", .2), border = NA)
-polygon(c(R_WL_4$t, rev(R_WL_4$t)),
-        c(R_WL_4$R_low, rev(R_WL_4$R_up)),
-        col = alpha("violet", .2), border = NA)
-legend("topright", c("Cori", "Wallinga and Teunis", "Wallinga and Lipsitch"),
-       col = c("blue", "turquoise", "violet"), lty = 1)
-
-
-
+        col = alpha(col_WT, .2), border = NA)
+lines(R_WL$t, R_WL$R, type = "l", col = col_WL)
+polygon(c(R_WL$t, rev(R_WL$t)),
+        c(R_WL$R_low, rev(R_WL$R_up)),
+        col = alpha(col_WL, .2), border = NA)
+legend("topright", c("EpiEstim", "Wallinga and Teunis", "Wallinga and Lipsitch"),
+       col = c(col_EpiEstim, col_WT, col_WL), lty = 1)
 
