@@ -1,5 +1,6 @@
 # - - - - - - - - - - - - - - - - - - - - - - -
-# Deconvolution of simulated infection data
+# Deconvolution of simulated infection data (DEPRECATED)
+# Now incorporated into R_estimation.R
 # - - - - - - - - - - - - - - - - - - - - - - -
 
 # Load libraries
@@ -21,6 +22,8 @@ mean_p <- 10
 scale_p <- 1
 shift_p <- 0
 
+#convert_params_to_summary_stats(distribution = "gamma", shape = mean_p/scale_p, scale = scale_p)
+
 # Plot delay function
 max_days <- 30
 p_by_day <- function(x){dgamma(x,shape=mean_p/scale_p,scale=scale_p)}
@@ -38,15 +41,21 @@ for(ii in 1:n_inf){
 
 }
 
+# Run simulation function to generate delayed outcomes from original infections
+data_outcomes <- f_matrix %*% data_infections
+
+# Run again but with noise on delayed outcome observations
+data_outcomes2 <- data_outcomes * rlnorm(length(data_outcomes),0,0.0001) # add some noise
 
 # Quick simulation --------------------------------------------------------
 
 # Simulate outcomes
-letter_x <- 1
+
 
 data_outcomes <- f_matrix %*% data_infections
 
 par(mfrow=c(1,1),mgp=c(2,0.7,0),mar = c(3,3,1,1))
+letter_x <- 1
 ymax <- 1.1e3
 
 # Plot original incidence
@@ -85,8 +94,7 @@ estimate_infections <- function(delayed_outcomes){
 
 }
 
-# Run simulation function to generate delayed outcomes from original infections
-data_outcomes <- f_matrix %*% data_infections
+
 #data_outcomes <- data_outcomes * rlnorm(length(data_outcomes),0,0.05) # add some noise
 
 par(mfrow=c(1,2),mgp=c(2,0.7,0),mar = c(3,3,1,1))
@@ -112,8 +120,6 @@ graphics::text(labels="deconvolved outcomes",x=x_shift,y=(y_shift-100),adj=0,col
 graphics::text(labels="shifted outcomes",x=x_shift,y=(y_shift-150),adj=0,col="orange",cex=t_size)
 
 
-# Run again but with noise on delayed outcome observations
-data_outcomes2 <- data_outcomes * rlnorm(length(data_outcomes),0,0.0001) # add some noise
 
 # Plot original incidence
 plot(data_infections,yaxs="i",ylab="daily cases",ylim=c(0,ymax),xlab="days")
@@ -131,6 +137,6 @@ title(main=LETTERS[2],adj=0);letter_x <- letter_x+1
 dev.copy(png,paste0("outputs/convolution_plot.png"),units="cm",width=20,height=10,res=150)
 dev.off()
 
-
+saveRDS(data_infections, "outputs/data_infections.rds")
 saveRDS(data_outcomes, "outputs/data_outcomes.rds")
 saveRDS(data_outcomes2, "outputs/data_outcomes2.rds")
