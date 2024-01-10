@@ -16,8 +16,15 @@ library(tidyverse)
 # Generate simulated data -------------------------------------------------
 
 # Simulate infection dynamics
-xx <- 0:1000
-data_infections <- c(seq(220,1000,20),rev(seq(200,1000,200)),rep(200,40))
+growth_infections <- c(rep(0.1,40),rep(-1,5),rep(0.05,40))
+
+initial_infections <- 20
+data_infections <- initial_infections
+for(ii in 2:length(growth_infections)){
+  data_infections <- c(data_infections,data_infections[ii-1]*exp(growth_infections[ii]))
+}
+
+#data_infections <- c(seq(220,1000,20),rev(seq(200,1000,200)),rep(200,40)) # linear example
 
 n_inf <- length(data_infections) # number of days to consider
 data_infections <- data_infections
@@ -47,8 +54,10 @@ for(ii in 1:n_inf){
 # Run simulation function to generate delayed outcomes from original infections
 data_outcomes <- f_matrix %*% data_infections
 
-# Run again but with noise on delayed outcome observations
-data_outcomes2 <- data_outcomes * rlnorm(length(data_outcomes),0,0.0001) # add some noise
+# Run again but with slight and heavy noise on delayed outcome observations
+set.seed(5)
+data_outcomes_slight <- data_outcomes * rlnorm(length(data_outcomes),0,0.0001) # add some noise
+data_outcomes2 <- data_outcomes * rlnorm(length(data_outcomes),0,0.1) # add some noise
 
 
 # Rt inference ------------------------------------------------------------
@@ -177,7 +186,7 @@ R_epinow <- epinow(
 ### summary plots for Rt
 ####################################
 
-par(mfrow=c(3,1),mgp=c(2.5,0.7,0),mar = c(3.5,3.5,1,1))
+par(mfrow=c(2,2),mgp=c(2.5,0.7,0),mar = c(3.5,3.5,1,1))
 
 # Plot incidence
 # plot(x, y,
@@ -186,10 +195,17 @@ par(mfrow=c(3,1),mgp=c(2.5,0.7,0),mar = c(3.5,3.5,1,1))
 #      ylab = "Log daily incidence")
 x_infections <- 1:length(data_infections)
 
-plot(x_infections,data_infections,ylim=c(0,1e3),xlab="time",ylab="events",type="l",lwd=2)
-lines(x_infections,data_outcomes,col="red",lwd=1,lty=1)
+plot(x_infections,data_infections,ylim=c(0,1.5e3),xlab="time",ylab="events",type="l",lwd=2)
+lines(x_infections,data_outcomes2,col="red",lwd=1,lty=1)
 legend("topright", c("infections", "outcomes"),
        col = c("black", "red"), lty = 1)
+
+# Plot on log scale
+plot(x_infections,data_infections,ylim=c(1,3e4),xlab="time",ylab="events (log scale)",type="l",lwd=2,log="y")
+lines(x_infections,data_outcomes2,col="red",lwd=1,lty=1)
+legend("topright", c("infections", "outcomes"),
+       col = c("black", "red"), lty = 1)
+
 
 # Plot Rt estimates by outcome data
 plot(R_cori$R$t_end, R_cori$R$`Mean(R)`, type = "l",
@@ -216,18 +232,21 @@ legend("topright", c("EpiEstim", "Wallinga and Teunis", "Wallinga and Lipsitch")
 R_estimates <- R_epinow$estimates$summarised |> filter(variable=="R")
 x_numeric <- as.numeric(R_estimates$date-min_date) # convert to numerical values
 
-plot(x_numeric,R_estimates$median,yaxs="i",ylab="R estimates",ylim=c(0,5),xlab="days",type="l",col="blue")
+plot(x_numeric,R_estimates$median,yaxs="i",ylab="R estimates",ylim=c(0,5),xlab="days",type="l",col="darkorange")
 polygon(c(x_numeric,rev(x_numeric)),c(R_estimates$lower_90,rev(R_estimates$upper_90)),
-        col=rgb(0,0,1,0.1),border=NA)
+        col=rgb(1,0.5,0,0.1),border=NA)
 abline(h = 1, col = "grey", lty = 2)
 lines(R_cori$R$t_end - mean_p, R_cori$R$`Mean(R)`, col = col_EpiEstim) # Plot shifted EpiNow
 polygon(c(R_cori$R$t_end-mean_p, rev(R_cori$R$t_end-mean_p)),
         c(R_cori$R$`Quantile.0.025(R)`, rev(R_cori$R$`Quantile.0.975(R)`)),
         col = alpha(col_EpiEstim, .2), border = NA)
 legend("topright", c("EpiEstim shifted", "EpiNow2"),
-       col = c(col_EpiEstim, "blue"), lty = 1)
+       col = c(col_EpiEstim, "darkorange"), lty = 1)
 
-dev.copy(png,paste0("outputs/R_plot.png"),units="cm",width=15,height=15,res=150)
+# dev.copy(png,paste0("outputs/R_plot.png"),units="cm",width=20,height=12,res=150)
+# dev.off()
+
+dev.copy(pdf,paste("outputs/R_plot.pdf",sep=""),width=6,height=5)
 dev.off()
 
 
@@ -262,12 +281,12 @@ estimate_infections_mat <- function(delayed_outcomes){
 # Run simulation function to generate delayed outcomes from original infections
 data_outcomes <- f_matrix %*% data_infections
 
-par(mfrow=c(3,1),mgp=c(2,0.7,0),mar = c(3,3,1,1))
+par(mfrow=c(3,1),mgp=c(2.5,0.7,0),mar = c(3.5,3.5,1,1))
 letter_x <- 1
 ymax <- 1.3e3
 
 # Plot original incidence vs inference based on deconvolution and shift
-plot(x_infections,data_infections,ylim=c(0,ymax),xlab="time",ylab="events")
+plot(x_infections,data_infections,ylim=c(0,ymax),xlab="time",ylab="daily events")
 lines(x_infections,data_outcomes,col="red",lwd=1,lty=1)
 legend("topright", c("infections", "outcomes"),
        col = c("black", "red"), lty = 1)
@@ -288,9 +307,9 @@ legend("topright", c("true infections","delayed outcomes","deconvolved outcomes"
 data_outcomes2 <- data_outcomes * rlnorm(length(data_outcomes),0,0.0001) # add some noise
 
 # Plot noisy deconvolution
-plot(data_infections,yaxs="i",ylab="daily cases",ylim=c(0,ymax),xlab="days")
+plot(data_infections,yaxs="i",ylab="daily events",ylim=c(0,ymax),xlab="days")
 
-inc2 <- estimate_infections_mat(data_outcomes2)
+inc2 <- estimate_infections_mat(data_outcomes_slight)
 lines(inc2,col="blue",lwd=1)
 lines(data_outcomes2,col="red",lwd=2)
 
@@ -304,16 +323,18 @@ title(main=LETTERS[2],adj=0);letter_x <- letter_x+1
 infection_estimates <- R_epinow$estimates$summarised |> filter(variable=="infections")
 x_numeric <- as.numeric(infection_estimates$date-min_date) # convert to numerical values
 
-plot(x_infections,data_infections,yaxs="i",ylab="daily cases",ylim=c(0,ymax),xlab="days")
+plot(x_infections,data_infections,yaxs="i",ylab="daily events",ylim=c(0,ymax),xlab="days")
 lines(data_outcomes2,col="red",lwd=2)
-lines(x_numeric,infection_estimates$median,lwd=2,col="blue")
+lines(x_numeric,infection_estimates$median,lwd=2,col="darkorange")
 polygon(c(x_numeric,rev(x_numeric)),c(infection_estimates$lower_90,rev(infection_estimates$upper_90)),
-        col=rgb(0,0,1,0.1),border=NA)
+        col=rgb(1,0.5,0,0.1),border=NA)
 
 legend("topright", c("true infections","noisy outcomes","EpiNow2 estimated infections"),
-       col = c("black","red","blue"), lty = 1)
+       col = c("black","red","darkorange"), lty = 1)
 
-dev.copy(png,paste0("outputs/convolution_plot.png"),units="cm",width=15,height=15,res=150)
+# dev.copy(png,paste0("outputs/convolution_plot.png"), units="cm",width=15,height=15,res=150)
+# dev.off()
+dev.copy(pdf,paste("outputs/convolution_plot.pdf",sep=""),width=4,height=6)
 dev.off()
 
 
