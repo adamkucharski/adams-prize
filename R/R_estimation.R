@@ -26,8 +26,8 @@ for(ii in 2:length(growth_infections)){
 
 #data_infections <- c(seq(220,1000,20),rev(seq(200,1000,200)),rep(200,40)) # linear example
 
+x_infections <- 1:length(data_infections) # time labels
 n_inf <- length(data_infections) # number of days to consider
-data_infections <- data_infections
 
 # Set delay function pmf
 mean_p <- 10
@@ -46,18 +46,17 @@ n_delay_days <- 50 # maximum delay period to consider
 for(ii in 1:n_inf){
   i_max <- min(ii+n_delay_days-1,n_inf)
   j_max <- min(n_inf-ii+1,n_delay_days)
-  
   f_matrix[ii:i_max,ii] <- p_by_day(0:(j_max-1)) # fill matrix entries
   
 }
 
-# Run simulation function to generate delayed outcomes from original infections
+# Run simulation function to generate expected delayed outcomes from original infections
 data_outcomes <- f_matrix %*% data_infections
 
 # Run again but with slight and heavy noise on delayed outcome observations
 set.seed(5)
-data_outcomes_slight <- data_outcomes * rlnorm(length(data_outcomes),0,0.0001) # add some noise
-data_outcomes2 <- data_outcomes * rlnorm(length(data_outcomes),0,0.1) # add some noise
+data_outcomes_slight <- round(data_outcomes * rlnorm(length(data_outcomes),0,0.0001) ) # add some noise
+data_outcomes2 <- round(data_outcomes * rlnorm(length(data_outcomes),0,0.1) ) # add some noise
 
 
 # Rt inference ------------------------------------------------------------
@@ -66,12 +65,13 @@ col_EpiEstim <- "blue"
 col_WT <- "turquoise"
 col_WL <- "violet"
 
-incidence <- data_outcomes2
-
 # round and start on first day with data
+incidence <- data_outcomes2
+incidence_valid <- round(incidence)>0
+incidence <- incidence[incidence_valid]
 
-incidence <- round(incidence)
-incidence <- incidence[-seq(1, 3)]
+# generate matching indices
+x_incidence <- x_infections[incidence_valid]
 
 ####################################
 # assume a GT or SI
@@ -145,7 +145,7 @@ R_WT <- wallinga_teunis(incid = incidence,
 
 # Make data.frame of cases for EpiNow2 - need to define dates
 min_date <- as.Date("2020-03-01")
-case_data <- data.frame(date = min_date+1:length(incidence), confirm = incidence)
+case_data <- data.frame(date = min_date+x_incidence, confirm = incidence)
 
 serial_interval_covid <- 
   dist_spec(
@@ -187,24 +187,25 @@ R_epinow <- epinow(
 ####################################
 
 par(mfrow=c(2,2),mgp=c(2.5,0.7,0),mar = c(3.5,3.5,1,1))
-
+letter_x <- 1
 # Plot incidence
 # plot(x, y,
 #      xlim = c(0, 85), ylim = c(0, 7),
 #      xlab = "Days",
 #      ylab = "Log daily incidence")
-x_infections <- 1:length(data_infections)
 
 plot(x_infections,data_infections,ylim=c(0,1.5e3),xlab="time",ylab="events",type="l",lwd=2)
 lines(x_infections,data_outcomes2,col="red",lwd=1,lty=1)
 legend("topright", c("infections", "outcomes"),
        col = c("black", "red"), lty = 1)
+title(main=LETTERS[letter_x],adj=0);letter_x <- letter_x+1
 
 # Plot on log scale
 plot(x_infections,data_infections,ylim=c(1,3e4),xlab="time",ylab="events (log scale)",type="l",lwd=2,log="y")
 lines(x_infections,data_outcomes2,col="red",lwd=1,lty=1)
 legend("topright", c("infections", "outcomes"),
        col = c("black", "red"), lty = 1)
+title(main=LETTERS[letter_x],adj=0);letter_x <- letter_x+1
 
 
 # Plot Rt estimates by outcome data
@@ -227,21 +228,25 @@ polygon(c(R_WL$t, rev(R_WL$t)),
         col = alpha(col_WL, .2), border = NA)
 legend("topright", c("EpiEstim", "Wallinga and Teunis", "Wallinga and Lipsitch"),
        col = c(col_EpiEstim, col_WT, col_WL), lty = 1)
+title(main=LETTERS[letter_x],adj=0);letter_x <- letter_x+1
 
 # Plot Rt estimates by infection date via EpiNow2 and simple shift for EpiNow
 R_estimates <- R_epinow$estimates$summarised |> filter(variable=="R")
 x_numeric <- as.numeric(R_estimates$date-min_date) # convert to numerical values
 
+shift_epiestim <- mean_p # shift by half the delay period? ANNE TO CHECK
+
 plot(x_numeric,R_estimates$median,yaxs="i",ylab="R estimates",ylim=c(0,5),xlab="days",type="l",col="darkorange")
 polygon(c(x_numeric,rev(x_numeric)),c(R_estimates$lower_90,rev(R_estimates$upper_90)),
-        col=rgb(1,0.5,0,0.1),border=NA)
+        col=rgb(1,0.5,0,0.2),border=NA)
 abline(h = 1, col = "grey", lty = 2)
-lines(R_cori$R$t_end - mean_p, R_cori$R$`Mean(R)`, col = col_EpiEstim) # Plot shifted EpiNow
-polygon(c(R_cori$R$t_end-mean_p, rev(R_cori$R$t_end-mean_p)),
+lines(R_cori$R$t_end - shift_epiestim, R_cori$R$`Mean(R)`, col = col_EpiEstim) # Plot shifted EpiNow
+polygon(c(R_cori$R$t_end-shift_epiestim, rev(R_cori$R$t_end-shift_epiestim)),
         c(R_cori$R$`Quantile.0.025(R)`, rev(R_cori$R$`Quantile.0.975(R)`)),
         col = alpha(col_EpiEstim, .2), border = NA)
 legend("topright", c("EpiEstim shifted", "EpiNow2"),
        col = c(col_EpiEstim, "darkorange"), lty = 1)
+title(main=LETTERS[letter_x],adj=0);letter_x <- letter_x+1
 
 # dev.copy(png,paste0("outputs/R_plot.png"),units="cm",width=20,height=12,res=150)
 # dev.off()
@@ -290,32 +295,32 @@ plot(x_infections,data_infections,ylim=c(0,ymax),xlab="time",ylab="daily events"
 lines(x_infections,data_outcomes,col="red",lwd=1,lty=1)
 legend("topright", c("infections", "outcomes"),
        col = c("black", "red"), lty = 1)
-title(main=LETTERS[1],adj=0);letter_x <- letter_x+1
+title(main=LETTERS[letter_x],adj=0);letter_x <- letter_x+1
 
 # Plot simple deconvolution
 inc1 <- estimate_infections_mat(data_outcomes)
 lines(inc1,col="blue",lwd=2)
 
 # Plot simple shift
-lines(tail(data_outcomes,-mean_p),col="orange",lwd=2)
+lines(x_infections-mean_p,data_outcomes,col="orange",lwd=2)
 
 # Add caption
 legend("topright", c("true infections","delayed outcomes","deconvolved outcomes","shifted outcomes"),
        col = c("black", "red","blue","orange"), lty = 1)
 
 # Run again but with noise on delayed outcome observations
-data_outcomes2 <- data_outcomes * rlnorm(length(data_outcomes),0,0.0001) # add some noise
+#data_outcomes2 <- data_outcomes * rlnorm(length(data_outcomes),0,0.0001) # add some noise
 
 # Plot noisy deconvolution
 plot(data_infections,yaxs="i",ylab="daily events",ylim=c(0,ymax),xlab="days")
 
 inc2 <- estimate_infections_mat(data_outcomes_slight)
 lines(inc2,col="blue",lwd=1)
-lines(data_outcomes2,col="red",lwd=2)
+lines(data_outcomes_slight,col="red",lwd=2)
 
-legend("topright", c("true infections","noisy outcomes","deconvolved outcomes"),
+legend("topright", c("true infections","\'noisy\' outcomes","deconvolved outcomes"),
        col = c("black","red","blue"), lty = 1)
-title(main=LETTERS[2],adj=0);letter_x <- letter_x+1
+title(main=LETTERS[letter_x],adj=0);letter_x <- letter_x+1
 
 # EpiNow2 inference
 
@@ -323,14 +328,19 @@ title(main=LETTERS[2],adj=0);letter_x <- letter_x+1
 infection_estimates <- R_epinow$estimates$summarised |> filter(variable=="infections")
 x_numeric <- as.numeric(infection_estimates$date-min_date) # convert to numerical values
 
+x_obs <- as.numeric(R_epinow$estimates$observations$date-min_date)
+y_obs <- as.numeric(R_epinow$estimates$observations$confirm)
+
 plot(x_infections,data_infections,yaxs="i",ylab="daily events",ylim=c(0,ymax),xlab="days")
 lines(data_outcomes2,col="red",lwd=2)
-lines(x_numeric,infection_estimates$median,lwd=2,col="darkorange")
 polygon(c(x_numeric,rev(x_numeric)),c(infection_estimates$lower_90,rev(infection_estimates$upper_90)),
-        col=rgb(1,0.5,0,0.1),border=NA)
+        col=rgb(1,0.5,0,0.2),border=NA)
+lines(x_numeric,infection_estimates$median,lwd=2,col="darkorange")
 
 legend("topright", c("true infections","noisy outcomes","EpiNow2 estimated infections"),
        col = c("black","red","darkorange"), lty = 1)
+title(main=LETTERS[letter_x],adj=0);letter_x <- letter_x+1
+
 
 # dev.copy(png,paste0("outputs/convolution_plot.png"), units="cm",width=15,height=15,res=150)
 # dev.off()
