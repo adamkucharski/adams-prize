@@ -12,6 +12,7 @@ library(epitrix)
 library(scales)
 library(MASS)
 library(tidyverse)
+library(EpiNow2)
 
 # Generate simulated data -------------------------------------------------
 
@@ -47,7 +48,7 @@ for(ii in 1:n_inf){
   i_max <- min(ii+n_delay_days-1,n_inf)
   j_max <- min(n_inf-ii+1,n_delay_days)
   f_matrix[ii:i_max,ii] <- p_by_day(0:(j_max-1)) # fill matrix entries
-  
+
 }
 
 # Run simulation function to generate expected delayed outcomes from original infections
@@ -147,7 +148,7 @@ R_WT <- wallinga_teunis(incid = incidence,
 min_date <- as.Date("2020-03-01")
 case_data <- data.frame(date = min_date+x_incidence, confirm = incidence)
 
-serial_interval_covid <- 
+serial_interval_covid <-
   dist_spec(
     mean = 6,
     sd = 2,
@@ -155,16 +156,21 @@ serial_interval_covid <-
     distribution = "gamma"
   )
 
+### NOTE this is slightly different to what I used above (because of different discretisation):
+plot(serial_interval_covid$np_pmf)
+lines(distr_SI)
+
 # Delay infection to outcome
 # Uses: epiparameter::convert_params_to_summary_stats(distribution = "gamma", shape = mean_p/scale_p, scale = scale_p)
 
 incubation_time_covid <- dist_spec(
-  mean = mean_p, #from simulation model 
+  mean = mean_p, #from simulation model
   sd = 3.16, #from parameterisation above
   max = 25,
   distribution = "gamma"
 )
 
+## NOTE this is slow
 R_epinow <- epinow(
   # cases
   reported_cases = case_data,
@@ -235,6 +241,12 @@ R_estimates <- R_epinow$estimates$summarised |> filter(variable=="R")
 x_numeric <- as.numeric(R_estimates$date-min_date) # convert to numerical values
 
 shift_epiestim <- mean_p # shift by half the delay period? ANNE TO CHECK
+## should be ok although technically the mean of the discrete distribution is slightly different
+## not sure if it's sum(incubation_time_covid$np_pmf*(0:24)) or sum(incubation_time_covid$np_pmf*(1:25))
+## howver this is not, I suspect, why the curves are shifted.
+## I think this is because I used daily estimates for EpiEstim and EpiNow2 must be doing some smoothing
+## seems to be in the gp = gp_opts() arguments that you change it in EpiNow2 but not sure.
+
 
 plot(x_numeric,R_estimates$median,yaxs="i",ylab="R estimates",ylim=c(0,5),xlab="days",type="l",col="darkorange")
 polygon(c(x_numeric,rev(x_numeric)),c(R_estimates$lower_90,rev(R_estimates$upper_90)),
@@ -262,25 +274,25 @@ invert_f <- ginv(f_matrix)
 
 # Function to estimate infection incidence from delayed outcomes
 estimate_infections_mat <- function(delayed_outcomes){
-  
+
   # Define transition matrix and calculate entries
   n_inf <- length(delayed_outcomes)
   f_matrix <- matrix(0,nrow=n_inf,ncol=n_inf)
   n_delay_days <- 30 # maximum incubation period to consider
-  
+
   for(ii in 1:n_inf){
     i_max <- min(ii+n_delay_days-1,n_inf)
     j_max <- min(n_inf-ii+1,n_delay_days)
     f_matrix[ii:i_max,ii] <- p_by_day(0:(j_max-1))
   }
-  
+
   # Calculate Moore-Penrose pseudoinverse matrix
   invert_f <- ginv(f_matrix)
-  
+
   # Apply inversion matrix
   output <- invert_f %*% delayed_outcomes
   output
-  
+
 }
 
 # Run simulation function to generate delayed outcomes from original infections
