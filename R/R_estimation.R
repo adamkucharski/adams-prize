@@ -185,6 +185,25 @@ R_epinow <- epinow(
   )
 )
 
+## tried changing the gp_opt to means of 1 and 7 but results are almost identical
+
+R_epinow_test <- epinow(
+  # cases
+  reported_cases = case_data,
+  # delays
+  generation_time = generation_time_opts(serial_interval_covid),
+  # delays
+  delays = delay_opts(incubation_time_covid),
+  # underlying gaussian process specs
+  gp = gp_opts(ls_mean = 1), # default is 21 days
+  # computation
+  stan = stan_opts(
+    cores = 4, samples = 1000, chains = 3,
+    control = list(adapt_delta = 0.99)
+  )
+)
+
+
 # Check output: base::plot(epinow_estimates)
 
 
