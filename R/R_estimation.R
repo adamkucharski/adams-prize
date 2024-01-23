@@ -37,8 +37,11 @@ shift_p <- 0
 
 # Plot delay function
 max_days <- 30
-p_by_day <- function(x){dgamma(x,shape=mean_p/scale_p,scale=scale_p)}
+#p_by_day <- function(x){dgamma(x,shape=mean_p/scale_p,scale=scale_p)}
+p_by_day <- function(x){pgamma(x+1,shape=mean_p/scale_p,scale=scale_p) - pgamma(x,shape=mean_p/scale_p,scale=scale_p)}
 #plot(1:max_days,p_by_day(1:max_days))
+tmp <- epitrix::gamma_shapescale2mucv(shape = mean_p/scale_p, scale = scale_p)
+tmp$sd <- tmp$mu * tmp$cv
 
 # Define transition matrix to construct outcome data
 f_matrix <- matrix(0,nrow=n_inf,ncol=n_inf)
@@ -70,6 +73,7 @@ col_WL <- "violet"
 incidence <- data_outcomes2
 incidence_valid <- round(incidence)>0
 incidence <- incidence[incidence_valid]
+n_days_removed <- min(which(incidence_valid)) - 1
 
 # generate matching indices
 x_incidence <- x_infections[incidence_valid]
@@ -92,7 +96,7 @@ y <- log(incidence+1)
 x <- seq_along(y)
 
 dt <- 7
-times <- lapply(seq(1, length(y)-5, dt), function(i) seq(i, i + dt - 1))
+times <- lapply(seq(1, length(y)-6, dt), function(i) seq(i, i + dt - 1))
 lm_all <- lapply(seq_along(times), function(i) lm(y[times[[i]]]~x[times[[i]]]))
 
 r_all <- t(sapply(seq_along(times), function(i) summary(lm_all[[i]])$coefficients[2, ]))
@@ -165,7 +169,7 @@ lines(distr_SI)
 
 incubation_time_covid <- dist_spec(
   mean = mean_p, #from simulation model
-  sd = 3.16, #from parameterisation above
+  sd = tmp$sd, #from parameterisation above
   max = 25,
   distribution = "gamma"
 )
@@ -184,25 +188,6 @@ R_epinow <- epinow(
     control = list(adapt_delta = 0.99)
   )
 )
-
-## tried changing the gp_opt to means of 1 and 7 but results are almost identical
-
-R_epinow_test <- epinow(
-  # cases
-  reported_cases = case_data,
-  # delays
-  generation_time = generation_time_opts(serial_interval_covid),
-  # delays
-  delays = delay_opts(incubation_time_covid),
-  # underlying gaussian process specs
-  gp = gp_opts(ls_mean = 1), # default is 21 days
-  # computation
-  stan = stan_opts(
-    cores = 4, samples = 1000, chains = 3,
-    control = list(adapt_delta = 0.99)
-  )
-)
-
 
 # Check output: base::plot(epinow_estimates)
 
@@ -234,21 +219,21 @@ title(main=LETTERS[letter_x],adj=0);letter_x <- letter_x+1
 
 
 # Plot Rt estimates by outcome data
-plot(R_cori$R$t_end, R_cori$R$`Mean(R)`, type = "l",
+plot(R_cori$R$t_end + n_days_removed, R_cori$R$`Mean(R)`, type = "l",
      xlim = c(0, 85), ylim = c(0, 5),
      xlab = "Days",
      ylab = "R estimates",
      col = col_EpiEstim)
-polygon(c(R_cori$R$t_end, rev(R_cori$R$t_end)),
+polygon(c(R_cori$R$t_end + n_days_removed, rev(R_cori$R$t_end)),
         c(R_cori$R$`Quantile.0.025(R)`, rev(R_cori$R$`Quantile.0.975(R)`)),
         col = alpha(col_EpiEstim, .2), border = NA)
 abline(h = 1, col = "grey", lty = 2)
-lines(R_WT$R$t_end, R_WT$R$`Mean(R)`, type = "l", col = col_WT)
-polygon(c(R_WT$R$t_end, rev(R_WT$R$t_end)),
+lines(R_WT$R$t_end + n_days_removed, R_WT$R$`Mean(R)`, type = "l", col = col_WT)
+polygon(c(R_WT$R$t_end + n_days_removed, rev(R_WT$R$t_end)),
         c(R_WT$R$`Quantile.0.025(R)`, rev(R_WT$R$`Quantile.0.975(R)`)),
         col = alpha(col_WT, .2), border = NA)
-lines(R_WL$t, R_WL$R, type = "l", col = col_WL)
-polygon(c(R_WL$t, rev(R_WL$t)),
+lines(R_WL$t + n_days_removed, R_WL$R, type = "l", col = col_WL)
+polygon(c(R_WL$t + n_days_removed, rev(R_WL$t)),
         c(R_WL$R_low, rev(R_WL$R_up)),
         col = alpha(col_WL, .2), border = NA)
 legend("topright", c("EpiEstim", "Wallinga and Teunis", "Wallinga and Lipsitch"),
@@ -271,8 +256,8 @@ plot(x_numeric,R_estimates$median,yaxs="i",ylab="R estimates",ylim=c(0,5),xlab="
 polygon(c(x_numeric,rev(x_numeric)),c(R_estimates$lower_90,rev(R_estimates$upper_90)),
         col=rgb(1,0.5,0,0.2),border=NA)
 abline(h = 1, col = "grey", lty = 2)
-lines(R_cori$R$t_end - shift_epiestim, R_cori$R$`Mean(R)`, col = col_EpiEstim) # Plot shifted EpiNow
-polygon(c(R_cori$R$t_end-shift_epiestim, rev(R_cori$R$t_end-shift_epiestim)),
+lines(R_cori$R$t_end + n_days_removed - shift_epiestim, R_cori$R$`Mean(R)`, col = col_EpiEstim) # Plot shifted EpiNow
+polygon(c(R_cori$R$t_end+n_days_removed-shift_epiestim, rev(R_cori$R$t_end+n_days_removed-shift_epiestim)),
         c(R_cori$R$`Quantile.0.025(R)`, rev(R_cori$R$`Quantile.0.975(R)`)),
         col = alpha(col_EpiEstim, .2), border = NA)
 legend("topright", c("EpiEstim shifted", "EpiNow2"),
@@ -284,7 +269,6 @@ title(main=LETTERS[letter_x],adj=0);letter_x <- letter_x+1
 
 dev.copy(pdf,paste("outputs/R_plot.pdf",sep=""),width=6,height=5)
 dev.off()
-
 
 # Analysis and plots for deconvolution ------------------------------------
 
