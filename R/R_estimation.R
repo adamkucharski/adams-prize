@@ -204,14 +204,16 @@ letter_x <- 1
 #      xlab = "Days",
 #      ylab = "Log daily incidence")
 
-plot(x_infections,data_infections,ylim=c(0,1.5e3),xlab="time",ylab="events",type="l",lwd=2)
+plot(x_infections,data_infections,ylim=c(0,1.5e3),xlab="time",ylab="events",type="l",lwd=2,
+     xlim = c(0, 85))
 lines(x_infections,data_outcomes2,col="red",lwd=1,lty=1)
 legend("topright", c("infections", "outcomes"),
        col = c("black", "red"), lty = 1)
 title(main=LETTERS[letter_x],adj=0);letter_x <- letter_x+1
 
 # Plot on log scale
-plot(x_infections,data_infections,ylim=c(1,3e4),xlab="time",ylab="events (log scale)",type="l",lwd=2,log="y")
+plot(x_infections,data_infections,ylim=c(1,3e4),xlab="time",ylab="events (log scale)",type="l",lwd=2,log="y",
+     xlim = c(0, 85))
 lines(x_infections,data_outcomes2,col="red",lwd=1,lty=1)
 legend("topright", c("infections", "outcomes"),
        col = c("black", "red"), lty = 1)
@@ -252,7 +254,8 @@ shift_epiestim <- mean_p # shift by half the delay period? ANNE TO CHECK
 ## seems to be in the gp = gp_opts() arguments that you change it in EpiNow2 but not sure.
 
 
-plot(x_numeric,R_estimates$median,yaxs="i",ylab="R estimates",ylim=c(0,5),xlab="days",type="l",col="darkorange")
+plot(x_numeric,R_estimates$median,yaxs="i",ylab="R estimates",ylim=c(0,5),xlab="days",type="l",col="darkorange",
+     xlim = c(0, 85))
 polygon(c(x_numeric,rev(x_numeric)),c(R_estimates$lower_90,rev(R_estimates$upper_90)),
         col=rgb(1,0.5,0,0.2),border=NA)
 abline(h = 1, col = "grey", lty = 2)
