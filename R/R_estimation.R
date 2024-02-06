@@ -33,6 +33,8 @@ n_inf <- length(data_infections) # number of days to consider
 # Set delay function pmf
 mean_p <- 10
 scale_p <- 1
+# alternative value to have no variability in incub:
+# scale_p <- 0.001
 shift_p <- 0
 
 # Plot delay function
@@ -84,9 +86,22 @@ x_incidence <- x_infections[incidence_valid]
 
 mean_SI <- 6
 sd_SI <- 2
+max_SI <- 25
 
-distr_SI <- discr_si(seq(0, 21), mu = mean_SI, sigma = sd_SI)
+# EpiEstim discretisation:
+#distr_SI <- discr_si(seq(0, max_SI), mu = mean_SI, sigma = sd_SI)
+#mean_SI_EpiEstim_discr <- sum(distr_SI*(seq(0, max_SI)))
 
+# EpiNow2 / standard discretisation:
+serial_interval_covid <-
+  dist_spec(
+    mean = mean_SI,
+    sd = sd_SI,
+    max = max_SI,
+    distribution = "gamma"
+  )
+mean_SI_epinow <- sum(serial_interval_covid$np_pmf*(seq_len(max_SI)))
+distr_SI <- c(0, serial_interval_covid$np_pmf)
 
 ####################################
 ### estimation with WL on weekly time windows
@@ -109,10 +124,10 @@ R_WL <- data.frame(t = x,
 
 for(i in seq_along(times)) {
   pred.lm <- predict(lm_all[[i]], interval = "confidence")
-  lines(x[times[[i]]], pred.lm[,"fit"], col = col_WL)
-  polygon(c(x[times[[i]]], rev(x[times[[i]]])),
-          c(pred.lm[,"lwr"], rev(pred.lm[,"upr"])),
-          col = alpha(col_WL, .2), border = NA)
+  #lines(x[times[[i]]], pred.lm[,"fit"], col = col_WL)
+  #polygon(c(x[times[[i]]], rev(x[times[[i]]])),
+  #        c(pred.lm[,"lwr"], rev(pred.lm[,"upr"])),
+  #        col = alpha(col_WL, .2), border = NA)
   R_WL_all[[i]] <- lm2R0_sample(lm_all[[i]], w = distr_SI)
   R_WL$R[times[[i]]] <- mean(R_WL_all[[i]])
   R_WL$R_low[times[[i]]] <- quantile(R_WL_all[[i]], 0.025)
@@ -152,27 +167,21 @@ R_WT <- wallinga_teunis(incid = incidence,
 min_date <- as.Date("2020-03-01")
 case_data <- data.frame(date = min_date+x_incidence, confirm = incidence)
 
-serial_interval_covid <-
-  dist_spec(
-    mean = 6,
-    sd = 2,
-    max = 25,
-    distribution = "gamma"
-  )
-
-### NOTE this is slightly different to what I used above (because of different discretisation):
-plot(serial_interval_covid$np_pmf)
-lines(distr_SI)
+### Now the SI distr used is harmonised between EpiNow2 and EpiEstim
+plot(1:max_SI, serial_interval_covid$np_pmf)
+lines(0:max_SI, distr_SI)
 
 # Delay infection to outcome
 # Uses: epiparameter::convert_params_to_summary_stats(distribution = "gamma", shape = mean_p/scale_p, scale = scale_p)
 
+max_incub <- 25
 incubation_time_covid <- dist_spec(
   mean = mean_p, #from simulation model
   sd = tmp$sd, #from parameterisation above
-  max = 25,
+  max = max_incub,
   distribution = "gamma"
 )
+mean_discr_incub <- sum(incubation_time_covid$np_pmf*(seq_len(max_incub)))
 
 ## NOTE this is slow
 R_epinow <- epinow(
@@ -246,7 +255,7 @@ title(main=LETTERS[letter_x],adj=0);letter_x <- letter_x+1
 R_estimates <- R_epinow$estimates$summarised |> filter(variable=="R")
 x_numeric <- as.numeric(R_estimates$date-min_date) # convert to numerical values
 
-shift_epiestim <- mean_p # shift by half the delay period? ANNE TO CHECK
+shift_epiestim <- mean_discr_incub # mean_p # shift by half the delay period? ANNE TO CHECK
 ## should be ok although technically the mean of the discrete distribution is slightly different
 ## not sure if it's sum(incubation_time_covid$np_pmf*(0:24)) or sum(incubation_time_covid$np_pmf*(1:25))
 ## howver this is not, I suspect, why the curves are shifted.
