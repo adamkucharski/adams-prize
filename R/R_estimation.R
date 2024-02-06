@@ -101,6 +101,7 @@ serial_interval_covid <-
     distribution = "gamma"
   )
 mean_SI_epinow <- sum(serial_interval_covid$np_pmf*(seq_len(max_SI)))
+var_SI_epinow <- sum(serial_interval_covid$np_pmf*(seq_len(max_SI))^2)
 distr_SI <- c(0, serial_interval_covid$np_pmf)
 
 ####################################
@@ -182,6 +183,7 @@ incubation_time_covid <- dist_spec(
   distribution = "gamma"
 )
 mean_discr_incub <- sum(incubation_time_covid$np_pmf*(seq_len(max_incub)))
+var_discr_incub <- sum(incubation_time_covid$np_pmf*(seq_len(max_incub))^2)
 
 ## NOTE this is slow
 R_epinow <- epinow(
