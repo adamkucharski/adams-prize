@@ -33,12 +33,17 @@ n_inf <- length(data_infections) # number of days to consider
 # Set delay function pmf
 mean_p <- 10
 scale_p <- 1
+# alternative value to have no variability in incub:
+# scale_p <- 0.001
 shift_p <- 0
 
 # Plot delay function
 max_days <- 30
-p_by_day <- function(x){dgamma(x,shape=mean_p/scale_p,scale=scale_p)}
+#p_by_day <- function(x){dgamma(x,shape=mean_p/scale_p,scale=scale_p)}
+p_by_day <- function(x){pgamma(x+1,shape=mean_p/scale_p,scale=scale_p) - pgamma(x,shape=mean_p/scale_p,scale=scale_p)}
 #plot(1:max_days,p_by_day(1:max_days))
+tmp <- epitrix::gamma_shapescale2mucv(shape = mean_p/scale_p, scale = scale_p)
+tmp$sd <- tmp$mu * tmp$cv
 
 # Define transition matrix to construct outcome data
 f_matrix <- matrix(0,nrow=n_inf,ncol=n_inf)
@@ -70,6 +75,7 @@ col_WL <- "violet"
 incidence <- data_outcomes2
 incidence_valid <- round(incidence)>0
 incidence <- incidence[incidence_valid]
+n_days_removed <- min(which(incidence_valid)) - 1
 
 # generate matching indices
 x_incidence <- x_infections[incidence_valid]
@@ -80,9 +86,23 @@ x_incidence <- x_infections[incidence_valid]
 
 mean_SI <- 6
 sd_SI <- 2
+max_SI <- 25
 
-distr_SI <- discr_si(seq(0, 21), mu = mean_SI, sigma = sd_SI)
+# EpiEstim discretisation:
+#distr_SI <- discr_si(seq(0, max_SI), mu = mean_SI, sigma = sd_SI)
+#mean_SI_EpiEstim_discr <- sum(distr_SI*(seq(0, max_SI)))
 
+# EpiNow2 / standard discretisation:
+serial_interval_covid <-
+  dist_spec(
+    mean = mean_SI,
+    sd = sd_SI,
+    max = max_SI,
+    distribution = "gamma"
+  )
+mean_SI_epinow <- sum(serial_interval_covid$np_pmf*(seq_len(max_SI)))
+var_SI_epinow <- sum(serial_interval_covid$np_pmf*(seq_len(max_SI))^2)
+distr_SI <- c(0, serial_interval_covid$np_pmf)
 
 ####################################
 ### estimation with WL on weekly time windows
@@ -92,7 +112,7 @@ y <- log(incidence+1)
 x <- seq_along(y)
 
 dt <- 7
-times <- lapply(seq(1, length(y)-5, dt), function(i) seq(i, i + dt - 1))
+times <- lapply(seq(1, length(y)-6, dt), function(i) seq(i, i + dt - 1))
 lm_all <- lapply(seq_along(times), function(i) lm(y[times[[i]]]~x[times[[i]]]))
 
 r_all <- t(sapply(seq_along(times), function(i) summary(lm_all[[i]])$coefficients[2, ]))
@@ -105,10 +125,10 @@ R_WL <- data.frame(t = x,
 
 for(i in seq_along(times)) {
   pred.lm <- predict(lm_all[[i]], interval = "confidence")
-  lines(x[times[[i]]], pred.lm[,"fit"], col = col_WL)
-  polygon(c(x[times[[i]]], rev(x[times[[i]]])),
-          c(pred.lm[,"lwr"], rev(pred.lm[,"upr"])),
-          col = alpha(col_WL, .2), border = NA)
+  #lines(x[times[[i]]], pred.lm[,"fit"], col = col_WL)
+  #polygon(c(x[times[[i]]], rev(x[times[[i]]])),
+  #        c(pred.lm[,"lwr"], rev(pred.lm[,"upr"])),
+  #        col = alpha(col_WL, .2), border = NA)
   R_WL_all[[i]] <- lm2R0_sample(lm_all[[i]], w = distr_SI)
   R_WL$R[times[[i]]] <- mean(R_WL_all[[i]])
   R_WL$R_low[times[[i]]] <- quantile(R_WL_all[[i]], 0.025)
@@ -148,27 +168,22 @@ R_WT <- wallinga_teunis(incid = incidence,
 min_date <- as.Date("2020-03-01")
 case_data <- data.frame(date = min_date+x_incidence, confirm = incidence)
 
-serial_interval_covid <-
-  dist_spec(
-    mean = 6,
-    sd = 2,
-    max = 25,
-    distribution = "gamma"
-  )
-
-### NOTE this is slightly different to what I used above (because of different discretisation):
-plot(serial_interval_covid$np_pmf)
-lines(distr_SI)
+### Now the SI distr used is harmonised between EpiNow2 and EpiEstim
+plot(1:max_SI, serial_interval_covid$np_pmf)
+lines(0:max_SI, distr_SI)
 
 # Delay infection to outcome
 # Uses: epiparameter::convert_params_to_summary_stats(distribution = "gamma", shape = mean_p/scale_p, scale = scale_p)
 
+max_incub <- 25
 incubation_time_covid <- dist_spec(
   mean = mean_p, #from simulation model
-  sd = 3.16, #from parameterisation above
-  max = 25,
+  sd = tmp$sd, #from parameterisation above
+  max = max_incub,
   distribution = "gamma"
 )
+mean_discr_incub <- sum(incubation_time_covid$np_pmf*(seq_len(max_incub)))
+var_discr_incub <- sum(incubation_time_covid$np_pmf*(seq_len(max_incub))^2)
 
 ## NOTE this is slow
 R_epinow <- epinow(
@@ -200,14 +215,16 @@ letter_x <- 1
 #      xlab = "Days",
 #      ylab = "Log daily incidence")
 
-plot(x_infections,data_infections,ylim=c(0,1.5e3),xlab="time",ylab="events",type="l",lwd=2)
+plot(x_infections,data_infections,ylim=c(0,1.5e3),xlab="time",ylab="events",type="l",lwd=2,
+     xlim = c(0, 85))
 lines(x_infections,data_outcomes2,col="red",lwd=1,lty=1)
 legend("topright", c("infections", "outcomes"),
        col = c("black", "red"), lty = 1)
 title(main=LETTERS[letter_x],adj=0);letter_x <- letter_x+1
 
 # Plot on log scale
-plot(x_infections,data_infections,ylim=c(1,3e4),xlab="time",ylab="events (log scale)",type="l",lwd=2,log="y")
+plot(x_infections,data_infections,ylim=c(1,3e4),xlab="time",ylab="events (log scale)",type="l",lwd=2,log="y",
+     xlim = c(0, 85))
 lines(x_infections,data_outcomes2,col="red",lwd=1,lty=1)
 legend("topright", c("infections", "outcomes"),
        col = c("black", "red"), lty = 1)
@@ -215,21 +232,21 @@ title(main=LETTERS[letter_x],adj=0);letter_x <- letter_x+1
 
 
 # Plot Rt estimates by outcome data
-plot(R_cori$R$t_end, R_cori$R$`Mean(R)`, type = "l",
+plot(R_cori$R$t_end + n_days_removed, R_cori$R$`Mean(R)`, type = "l",
      xlim = c(0, 85), ylim = c(0, 5),
      xlab = "Days",
      ylab = "R estimates",
      col = col_EpiEstim)
-polygon(c(R_cori$R$t_end, rev(R_cori$R$t_end)),
+polygon(c(R_cori$R$t_end + n_days_removed, rev(R_cori$R$t_end)),
         c(R_cori$R$`Quantile.0.025(R)`, rev(R_cori$R$`Quantile.0.975(R)`)),
         col = alpha(col_EpiEstim, .2), border = NA)
 abline(h = 1, col = "grey", lty = 2)
-lines(R_WT$R$t_end, R_WT$R$`Mean(R)`, type = "l", col = col_WT)
-polygon(c(R_WT$R$t_end, rev(R_WT$R$t_end)),
+lines(R_WT$R$t_end + n_days_removed, R_WT$R$`Mean(R)`, type = "l", col = col_WT)
+polygon(c(R_WT$R$t_end + n_days_removed, rev(R_WT$R$t_end)),
         c(R_WT$R$`Quantile.0.025(R)`, rev(R_WT$R$`Quantile.0.975(R)`)),
         col = alpha(col_WT, .2), border = NA)
-lines(R_WL$t, R_WL$R, type = "l", col = col_WL)
-polygon(c(R_WL$t, rev(R_WL$t)),
+lines(R_WL$t + n_days_removed, R_WL$R, type = "l", col = col_WL)
+polygon(c(R_WL$t + n_days_removed, rev(R_WL$t)),
         c(R_WL$R_low, rev(R_WL$R_up)),
         col = alpha(col_WL, .2), border = NA)
 legend("topright", c("EpiEstim", "Wallinga and Teunis", "Wallinga and Lipsitch"),
@@ -240,7 +257,7 @@ title(main=LETTERS[letter_x],adj=0);letter_x <- letter_x+1
 R_estimates <- R_epinow$estimates$summarised |> filter(variable=="R")
 x_numeric <- as.numeric(R_estimates$date-min_date) # convert to numerical values
 
-shift_epiestim <- mean_p # shift by half the delay period? ANNE TO CHECK
+shift_epiestim <- mean_discr_incub # mean_p # shift by half the delay period? ANNE TO CHECK
 ## should be ok although technically the mean of the discrete distribution is slightly different
 ## not sure if it's sum(incubation_time_covid$np_pmf*(0:24)) or sum(incubation_time_covid$np_pmf*(1:25))
 ## howver this is not, I suspect, why the curves are shifted.
@@ -248,12 +265,13 @@ shift_epiestim <- mean_p # shift by half the delay period? ANNE TO CHECK
 ## seems to be in the gp = gp_opts() arguments that you change it in EpiNow2 but not sure.
 
 
-plot(x_numeric,R_estimates$median,yaxs="i",ylab="R estimates",ylim=c(0,5),xlab="days",type="l",col="darkorange")
+plot(x_numeric,R_estimates$median,yaxs="i",ylab="R estimates",ylim=c(0,5),xlab="days",type="l",col="darkorange",
+     xlim = c(0, 85))
 polygon(c(x_numeric,rev(x_numeric)),c(R_estimates$lower_90,rev(R_estimates$upper_90)),
         col=rgb(1,0.5,0,0.2),border=NA)
 abline(h = 1, col = "grey", lty = 2)
-lines(R_cori$R$t_end - shift_epiestim, R_cori$R$`Mean(R)`, col = col_EpiEstim) # Plot shifted EpiNow
-polygon(c(R_cori$R$t_end-shift_epiestim, rev(R_cori$R$t_end-shift_epiestim)),
+lines(R_cori$R$t_end + n_days_removed - shift_epiestim, R_cori$R$`Mean(R)`, col = col_EpiEstim) # Plot shifted EpiNow
+polygon(c(R_cori$R$t_end+n_days_removed-shift_epiestim, rev(R_cori$R$t_end+n_days_removed-shift_epiestim)),
         c(R_cori$R$`Quantile.0.025(R)`, rev(R_cori$R$`Quantile.0.975(R)`)),
         col = alpha(col_EpiEstim, .2), border = NA)
 legend("topright", c("EpiEstim shifted", "EpiNow2"),
@@ -265,7 +283,6 @@ title(main=LETTERS[letter_x],adj=0);letter_x <- letter_x+1
 
 dev.copy(pdf,paste("outputs/R_plot.pdf",sep=""),width=6,height=5)
 dev.off()
-
 
 # Analysis and plots for deconvolution ------------------------------------
 
