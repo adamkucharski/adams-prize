@@ -314,6 +314,8 @@ estimate_infections_mat <- function(delayed_outcomes){
 # Run simulation function to generate delayed outcomes from original infections
 data_outcomes <- f_matrix %*% data_infections
 
+pdf(paste("outputs/convolution_plot.pdf",sep=""),width=4,height=6)
+cex_legend <- .75
 par(mfrow=c(3,1),mgp=c(2.5,0.7,0),mar = c(3.5,3.5,1,1))
 letter_x <- 1
 ymax <- 1.3e3
@@ -321,8 +323,6 @@ ymax <- 1.3e3
 # Plot original incidence vs inference based on deconvolution and shift
 plot(x_infections,data_infections,ylim=c(0,ymax),xlab="time",ylab="daily events")
 lines(x_infections,data_outcomes,col="red",lwd=1,lty=1)
-legend("topright", c("infections", "outcomes"),
-       col = c("black", "red"), lty = 1)
 title(main=LETTERS[letter_x],adj=0);letter_x <- letter_x+1
 
 # Plot simple deconvolution
@@ -334,7 +334,7 @@ lines(x_infections-mean_p,data_outcomes,col="orange",lwd=2)
 
 # Add caption
 legend("topright", c("true infections","delayed outcomes","deconvolved outcomes","shifted outcomes"),
-       col = c("black", "red","blue","orange"), lty = 1)
+       col = c("black", "red","blue","orange"), lty = 1, cex = cex_legend)
 
 # Run again but with noise on delayed outcome observations
 #data_outcomes2 <- data_outcomes * rlnorm(length(data_outcomes),0,0.0001) # add some noise
@@ -347,7 +347,7 @@ lines(inc2,col="blue",lwd=1)
 lines(data_outcomes_slight,col="red",lwd=2)
 
 legend("topright", c("true infections","\'noisy\' outcomes","deconvolved outcomes"),
-       col = c("black","red","blue"), lty = 1)
+       col = c("black","red","blue"), lty = 1, cex = cex_legend, bg = "white")
 title(main=LETTERS[letter_x],adj=0);letter_x <- letter_x+1
 
 # EpiNow2 inference
@@ -366,13 +366,13 @@ polygon(c(x_numeric,rev(x_numeric)),c(infection_estimates$lower_90,rev(infection
 lines(x_numeric,infection_estimates$median,lwd=2,col="darkorange")
 
 legend("topright", c("true infections","noisy outcomes","EpiNow2 estimated infections"),
-       col = c("black","red","darkorange"), lty = 1)
+       col = c("black","red","darkorange"), lty = 1, cex = cex_legend)
 title(main=LETTERS[letter_x],adj=0);letter_x <- letter_x+1
 
 
 # dev.copy(png,paste0("outputs/convolution_plot.png"), units="cm",width=15,height=15,res=150)
 # dev.off()
-dev.copy(pdf,paste("outputs/convolution_plot.pdf",sep=""),width=4,height=6)
+# dev.copy(pdf,paste("outputs/convolution_plot.pdf",sep=""),width=4,height=6)
 dev.off()
 
 
