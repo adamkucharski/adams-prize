@@ -207,6 +207,9 @@ R_epinow <- epinow(
 ### summary plots for Rt
 ####################################
 
+pdf(paste("outputs/R_plot.pdf",sep=""),width=6,height=5)
+
+cex_legend <- .75
 par(mfrow=c(2,2),mgp=c(2.5,0.7,0),mar = c(3.5,3.5,1,1))
 letter_x <- 1
 # Plot incidence
@@ -219,7 +222,7 @@ plot(x_infections,data_infections,ylim=c(0,1.5e3),xlab="time",ylab="events",type
      xlim = c(0, 85))
 lines(x_infections,data_outcomes2,col="red",lwd=1,lty=1)
 legend("topright", c("infections", "outcomes"),
-       col = c("black", "red"), lty = 1)
+       col = c("black", "red"), lty = 1, cex = cex_legend)
 title(main=LETTERS[letter_x],adj=0);letter_x <- letter_x+1
 
 # Plot on log scale
@@ -227,7 +230,7 @@ plot(x_infections,data_infections,ylim=c(1,3e4),xlab="time",ylab="events (log sc
      xlim = c(0, 85))
 lines(x_infections,data_outcomes2,col="red",lwd=1,lty=1)
 legend("topright", c("infections", "outcomes"),
-       col = c("black", "red"), lty = 1)
+       col = c("black", "red"), lty = 1, cex = cex_legend)
 title(main=LETTERS[letter_x],adj=0);letter_x <- letter_x+1
 
 
@@ -250,7 +253,7 @@ polygon(c(R_WL$t + n_days_removed, rev(R_WL$t)),
         c(R_WL$R_low, rev(R_WL$R_up)),
         col = alpha(col_WL, .2), border = NA)
 legend("topright", c("EpiEstim", "Wallinga and Teunis", "Wallinga and Lipsitch"),
-       col = c(col_EpiEstim, col_WT, col_WL), lty = 1)
+       col = c(col_EpiEstim, col_WT, col_WL), lty = 1, cex = cex_legend)
 title(main=LETTERS[letter_x],adj=0);letter_x <- letter_x+1
 
 # Plot Rt estimates by infection date via EpiNow2 and simple shift for EpiNow
@@ -275,13 +278,9 @@ polygon(c(R_cori$R$t_end+n_days_removed-shift_epiestim, rev(R_cori$R$t_end+n_day
         c(R_cori$R$`Quantile.0.025(R)`, rev(R_cori$R$`Quantile.0.975(R)`)),
         col = alpha(col_EpiEstim, .2), border = NA)
 legend("topright", c("EpiEstim shifted", "EpiNow2"),
-       col = c(col_EpiEstim, "darkorange"), lty = 1)
+       col = c(col_EpiEstim, "darkorange"), lty = 1, cex = cex_legend)
 title(main=LETTERS[letter_x],adj=0);letter_x <- letter_x+1
 
-# dev.copy(png,paste0("outputs/R_plot.png"),units="cm",width=20,height=12,res=150)
-# dev.off()
-
-dev.copy(pdf,paste("outputs/R_plot.pdf",sep=""),width=6,height=5)
 dev.off()
 
 # Analysis and plots for deconvolution ------------------------------------
